@@ -20,8 +20,10 @@
 #   This source code is part of the near-RT RIC (RAN Intelligent Controller)
 #   platform project (RICP).
 #
+#ARG DOCKER_REPO=nexus3.o-ran-sc.org:10004
+ARG DOCKER_REPO=akrainoenea
 
-FROM nexus3.o-ran-sc.org:10004/bldr-ubuntu16-c-go:3-u16.04-nng as ubuntu
+FROM ${DOCKER_REPO}/bldr-ubuntu16-c-go:3-u16.04-nng as ubuntu
 
 WORKDIR /opt/e2/
 
@@ -33,10 +35,13 @@ RUN mkdir -p /opt/e2/RIC-E2-TERMINATION/ \
 COPY . /opt/e2/RIC-E2-TERMINATION/
 RUN mv /opt/e2/RIC-E2-TERMINATION/CMakeLists.txt /opt/e2/
 
-RUN wget --content-disposition https://packagecloud.io/o-ran-sc/staging/packages/debian/stretch/rmr_1.13.0_amd64.deb/download.deb
-RUN dpkg -i rmr_1.13.0_amd64.deb
-RUN wget --content-disposition https://packagecloud.io/o-ran-sc/staging/packages/debian/stretch/rmr-dev_1.13.0_amd64.deb/download.deb
-RUN dpkg -i rmr-dev_1.13.0_amd64.deb
+# Install RMr library and dev files
+ENV RMR_VER=1.13.0
+RUN git clone https://gerrit.o-ran-sc.org/r/ric-plt/lib/rmr -b ${RMR_VER} \
+    && mkdir -p rmr/build \
+    && cd rmr/build \
+    && ( cmake -DDEV_PKG=1 .. && make install && ldconfig ) \
+    && ( cmake -DDEV_PKG=0 .. && make install && ldconfig )
 
 ARG BUILD_TYPE=Release
 
@@ -47,9 +52,8 @@ RUN apt-get install -y autoconf gawk libtool automake pkg-config autoconf-archiv
     && cd cxxopts && mkdir build && cd build && cmake .. && make install && ldconfig \
     && cd /opt/e2/RIC-E2-TERMINATION/3rdparty && git clone https://github.com/Tencent/rapidjson.git \
     && cd rapidjson && mkdir build && cd build && cmake .. && make install && ldconfig \
-    && cd /opt/e2/RIC-E2-TERMINATION/3rdparty \
-    && wget --content-disposition https://github.com/cgreen-devs/cgreen/releases/download/1.2.0/cgreen_1.2.0_amd64.deb \
-    && dpkg -i cgreen_1.2.0_amd64.deb \
+    && cd /opt/e2/RIC-E2-TERMINATION/3rdparty && git clone -b 1.2.0 https://github.com/cgreen-devs/cgreen.git \
+    && cd cgreen && mkdir build && cd build && cmake .. && make install && ldconfig \
     && cd /opt/e2/ && git clone https://github.com/bilke/cmake-modules.git \
     && cd /opt/e2/ && /usr/local/bin/cmake -D CMAKE_BUILD_TYPE=$BUILD_TYPE . && make
 
@@ -71,6 +75,9 @@ RUN if [$BUILD_TYPE == "Debug"] ; then make e2_coverage ; fi
 
 FROM ubuntu:16.04
 RUN apt-get update && apt-get install -y net-tools iputils-ping curl tcpdump && mkdir -p /opt/e2/config
+
+#ARG ARCH=x86_64
+ARG ARCH=aarch64
 
 COPY --from=ubuntu /opt/e2/e2 /opt/e2/e2
 COPY --from=ubuntu /opt/e2/RIC-E2-TERMINATION/dockerRouter.txt /opt/e2/dockerRouter.txt
@@ -107,17 +114,17 @@ COPY --from=ubuntu /usr/lib/libboost_filesystem.so.1.69.0 /usr/lib/libboost_file
 COPY --from=ubuntu /usr/lib/libboost_regex.so /usr/lib/libboost_regex.so
 COPY --from=ubuntu /usr/lib/libboost_regex.so.1.69.0 /usr/lib/libboost_regex.so.1.69.0
 
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicui18n.so /usr/lib/x86_64-linux-gnu/libicui18n.so
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicui18n.so.55 /usr/lib/x86_64-linux-gnu/libicui18n.so.55
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicui18n.so.55.1 /usr/lib/x86_64-linux-gnu/libicui18n.so.55.1
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicui18n.so /usr/lib/${ARCH}-linux-gnu/libicui18n.so
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicui18n.so.55 /usr/lib/${ARCH}-linux-gnu/libicui18n.so.55
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicui18n.so.55.1 /usr/lib/${ARCH}-linux-gnu/libicui18n.so.55.1
 
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicuuc.so /usr/lib/x86_64-linux-gnu/libicuuc.so
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicuuc.so.55 /usr/lib/x86_64-linux-gnu/libicuuc.so.55
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicuuc.so.55.1 /usr/lib/x86_64-linux-gnu/libicuuc.so.55.1
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicuuc.so /usr/lib/${ARCH}-linux-gnu/libicuuc.so
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicuuc.so.55 /usr/lib/${ARCH}-linux-gnu/libicuuc.so.55
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicuuc.so.55.1 /usr/lib/${ARCH}-linux-gnu/libicuuc.so.55.1
 
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicudata.so /usr/lib/x86_64-linux-gnu/libicudata.so
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicudata.so.55 /usr/lib/x86_64-linux-gnu/libicudata.so.55
-COPY --from=ubuntu /usr/lib/x86_64-linux-gnu/libicudata.so.55.1 /usr/lib/x86_64-linux-gnu/libicudata.so.55.1
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicudata.so /usr/lib/${ARCH}-linux-gnu/libicudata.so
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicudata.so.55 /usr/lib/${ARCH}-linux-gnu/libicudata.so.55
+COPY --from=ubuntu /usr/lib/${ARCH}-linux-gnu/libicudata.so.55.1 /usr/lib/${ARCH}-linux-gnu/libicudata.so.55.1
 
 
 WORKDIR /opt/e2/

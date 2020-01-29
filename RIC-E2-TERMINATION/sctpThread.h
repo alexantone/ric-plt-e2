@@ -425,10 +425,21 @@ void buildJsonMessage(ReportingMessages_t &message);
 string translateRmrErrorMessages(int state);
 
 
-static inline uint64_t rdtscp(uint32_t &aux) {
-    uint64_t rax,rdx;
-    asm volatile ("rdtscp\n" : "=a" (rax), "=d" (rdx), "=c" (aux) : :);
-    return (rdx << 32) + rax;
+/**
+ * From:
+ *  https://github.com/google/benchmark/blob/master/src/cycleclock.h
+ *  Apache License Version 2.0, January 2004
+ */
+static inline uint64_t cycles_now() {
+#if defined(__x86_64__)
+    uint64_t low, high;
+    asm volatile("rdtsc" : "=a"(low), "=d"(high));
+    return (high << 32) | low;
+#elif defined(__aarch64__)
+    int64_t virtual_timer_value;
+    asm volatile("mrs %0, cntvct_el0" : "=r"(virtual_timer_value));
+    return virtual_timer_value;
+#endif
 }
 #ifndef RIC_SCTP_CONNECTION_FAILURE
 #define RIC_SCTP_CONNECTION_FAILURE  10080
