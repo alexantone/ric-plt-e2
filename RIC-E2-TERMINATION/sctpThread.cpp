@@ -64,11 +64,10 @@ double age() {
 
 double approx_CPU_MHz(unsigned sleeptime) {
     using namespace std::chrono_literals;
-    uint32_t aux = 0;
-    uint64_t cycles_start = rdtscp(aux);
+    uint64_t cycles_start = cycles_now();
     double time_start = age();
     std::this_thread::sleep_for(sleeptime * 1ms);
-    uint64_t elapsed_cycles = rdtscp(aux) - cycles_start;
+    uint64_t elapsed_cycles = cycles_now() - cycles_start;
     double elapsed_time = age() - time_start;
     return elapsed_cycles / elapsed_time;
 }
@@ -99,9 +98,7 @@ int main(const int argc, char **argv) {
     }
 
     uint64_t st = 0,en = 0;
-    uint32_t aux1 = 0;
-    uint32_t aux2 = 0;
-    st = rdtscp(aux1);
+    st = cycles_now();
 
     unsigned num_cpus = std::thread::hardware_concurrency();
     init_log();
@@ -240,7 +237,7 @@ int main(const int argc, char **argv) {
     }
     jsonTrace = sctpParams.trace;
 
-    en = rdtscp(aux2);
+    en = cycles_now();
 
     mdclog_write(MDCLOG_INFO, "start = %lx end = %lx diff = %lx\n", st, en, en - st);
     mdclog_write(MDCLOG_INFO, "start high = %lx start lo = %lx end high = %lx end lo = %lx\n",
